@@ -1,3 +1,7 @@
+module GraphColoring (readGraphFile) where
+import qualified Data.Map as Map
+import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
+
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
@@ -6,21 +10,24 @@
 -- For sequential implementation, should we use this algorithm?
 --  https://www.geeksforgeeks.org/m-coloring-problem-backtracking-5/
 
-import qualified Data.Map as Map
-import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 -- figure out how to represent a graph
-type Node = Int
+type Node = String
 type Color = Int
 type Edge = (Node, Node)
 type AdjList = [Node]
 type Graph = Map.Map(Node) (AdjList, Color)
--- construct a graph from input file
--- TODO: decide the format of input file
--- g <- readGraphFile "sample.txt"
+-- ghci> import System.IO(stdin)
+-- ghci> readGraphLine stdin Map.empty
+-- A:B,C,D
 readGraphLine :: Handle -> Graph -> IO Graph
-readGraphLine handle g = do [node, color, adj] <- words <$> hGetLine handle
-                            return $ Map.insert (read node) (readAdjList adj, (read color)) g
+readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
+                            case args of
+                              [node, adj] -> return $ Map.insert node (readAdjList adj, 0) g
+                              _           -> return g
+                            
 
+-- construct a graph from input file
+-- g <- readGraphFile "samples/CLIQUE_300_3.3color"
 readGraphFile :: String -> IO Graph
 readGraphFile filename  = withFile filename ReadMode $ \handle -> loop handle readGraphLine Map.empty
 
@@ -38,17 +45,17 @@ wordsWhen p s = case dropWhile p s of
                          where (w, s'') = break p s'
 
 readAdjList :: String ->  AdjList
-readAdjList x = map (\w -> read w) $ wordsWhen (==',') x
--- implements fromList/toList?
--- color the graph and output a valid color to the vertices or false if it doesnt exist
+readAdjList x = wordsWhen (==',') x
 
 -- degree of a vertex
+-- e.g. degree "A" g
 degree :: Node -> Graph -> Int
 degree n g = case Map.lookup n g of
                   Just v -> length $ fst v
                   Nothing -> 0
 
--- clor of a vertex
+-- color of a vertex
+-- e.g. color "A" g
 color :: Node -> Graph -> Color
 color n g = case Map.lookup n g of
                  Just v -> (snd v)
