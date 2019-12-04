@@ -85,10 +85,16 @@ colorGraph [] _ g = g
 colorGraph nodes@(n:ns) colors@(x:xs) g
   | allVerticesColored g = g
   | otherwise = 
-      if validColor n x g then do
-        colorGraph ns colors $ setColor g n x
+      if nodeColor >0  then do
+        colorGraph ns colors $ setColor g n nodeColor
       else do
-        colorGraph nodes xs g
+        error "can't color graph"
+      where nodeColor = colorNode n colors g
+
+colorNode :: Node -> [Color] -> Graph -> Color
+colorNode _ [] _ = 0
+colorNode n colors@(x:xs) g = if validColor n x g then do x
+                              else do colorNode n xs g
 
 -- checks if all vertices have been coloured
 -- e.g. allVerticesColored g
