@@ -1,0 +1,16 @@
+Things we need to do: 
+
+- Graph data structure
+- Graph generator
+- isValidColouring method that checks if graph is a valid colouring
+- Graph parser; takes a file representation of a graph and constructs a "Graph"
+
+data Graph = Graph {
+	name :: String, 
+	neighbors :: [Node]
+	colour :: Int
+}
+
+Algo: 
+
+Backtracking algo 
