@@ -101,6 +101,16 @@ colorNode n colors@(x:xs) g = if validColor n x g then do x
 allVerticesColored :: Graph -> Bool
 allVerticesColored g = 0 `notElem` color' (Map.keys g) g
 
+validGraph :: Graph -> Bool
+validGraph g = isValidGraph (Map.keys g) g 
+
+isValidGraph :: [Node] -> Graph -> Bool
+isValidGraph [] g = False
+isValidGraph [n] g = color n g >= 0
+isValidGraph (n:ns) g 
+    | color n g `notElem` color' (getNeighbors n g) g = isValidGraph ns g
+    | otherwise = False
+
 -- checks if this color can be assigned to a vertex
 -- e.g. validColor "A" 1 g
 validColor :: Node -> Color -> Graph -> Bool
