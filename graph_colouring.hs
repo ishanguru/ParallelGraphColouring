@@ -1,4 +1,3 @@
--- module GraphColoring (readGraphFile) where
 import qualified Data.Map as Map
 import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
@@ -8,11 +7,7 @@ import System.Environment(getArgs, getProgName)
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
 -- http://ijmcs.future-in-tech.net/11.1/R-Anderson.pdf
--- 
--- For sequential implementation, should we use this algorithm?
---  https://www.geeksforgeeks.org/m-coloring-problem-backtracking-5/ll
 
--- figure out how to represent a graph
 type Node = String
 type Color = Int
 type AdjList = [Node]
@@ -39,7 +34,6 @@ main = do
     _ -> do 
         pn <- getProgName
         die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors>"
-
 
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
@@ -68,24 +62,17 @@ wordsWhen p s = case dropWhile p s of
 readAdjList :: String ->  AdjList
 readAdjList x = wordsWhen (==',') x
 
--- degree of a vertex
--- e.g. degree "A" g
-degree :: Node -> Graph -> Int
-degree n g = case Map.lookup n g of
-                  Just v -> length $ fst v
-                  Nothing -> 0
-
 -- color of a vertex
 -- e.g. color "A" g
-color :: Node -> Graph -> Color
-color n g = case Map.lookup n g of
+getColor :: Node -> Graph -> Color
+getColor n g = case Map.lookup n g of
                  Just v -> (snd v)
                  Nothing -> error "not valid graph"
 
 -- given a list of nodes and a graph, retrieve all colour assignments to the node
-color' :: [Node] -> Graph -> [Color]
-color' [] _ = []
-color' (x:xs) g = color x g : color' xs g
+getColors :: [Node] -> Graph -> [Color]
+getColors [] _ = []
+getColors (x:xs) g = getColor x g : getColors xs g
 
 -- gets all neighbors for a node in a graph
 getNeighbors :: Node -> Graph -> AdjList
@@ -104,10 +91,10 @@ setColor g n c = case Map.lookup n g of
 colorGraph :: [Node] -> [Color] -> Graph -> Graph
 colorGraph _ [] g = g
 colorGraph [] _ g = g
-colorGraph nodes@(n:ns) colors@(x:xs) g
+colorGraph (n:ns) colors g
   | allVerticesColored g = g
   | otherwise = 
-      if nodeColor >0  then do
+      if nodeColor > 0 then do
         colorGraph ns colors $ setColor g n nodeColor
       else do
         error "can't color graph"
@@ -115,27 +102,27 @@ colorGraph nodes@(n:ns) colors@(x:xs) g
 
 colorNode :: Node -> [Color] -> Graph -> Color
 colorNode _ [] _ = 0
-colorNode n colors@(x:xs) g = if validColor n x g then do x
+colorNode n (x:xs) g = if validColor n x g then do x
                               else do colorNode n xs g
 
 -- checks if all vertices have been coloured
 -- e.g. allVerticesColored g
 allVerticesColored :: Graph -> Bool
-allVerticesColored g = 0 `notElem` color' (Map.keys g) g
+allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
 
 isValidGraph :: Graph -> Bool
 isValidGraph g = isValidGraph' (Map.keys g) g
 
 isValidGraph' :: [Node] -> Graph -> Bool
-isValidGraph' [] g = False
-isValidGraph' [n] g = color n g >= 0
+isValidGraph' [] _ = False
+isValidGraph' [n] g = getColor n g >= 0
 isValidGraph' (n:ns) g 
-    | color n g `notElem` color' (getNeighbors n g) g = isValidGraph' ns g
+    | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
     | otherwise = False
 
 -- checks if this color can be assigned to a vertex
 -- e.g. validColor "A" 1 g
 validColor :: Node -> Color -> Graph -> Bool
-validColor n c g = c `notElem` color' (getNeighbors n g) g
+validColor n c g = c `notElem` getColors (getNeighbors n g) g
 
 
