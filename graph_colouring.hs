@@ -1,6 +1,8 @@
-module GraphColoring (readGraphFile) where
+-- module GraphColoring (readGraphFile) where
 import qualified Data.Map as Map
+import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
+import System.Environment(getArgs, getProgName)
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -8,7 +10,7 @@ import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 -- http://ijmcs.future-in-tech.net/11.1/R-Anderson.pdf
 -- 
 -- For sequential implementation, should we use this algorithm?
---  https://www.geeksforgeeks.org/m-coloring-problem-backtracking-5/
+--  https://www.geeksforgeeks.org/m-coloring-problem-backtracking-5/ll
 
 -- figure out how to represent a graph
 type Node = String
@@ -18,12 +20,32 @@ type Graph = Map.Map(Node) (AdjList, Color)
 -- ghci> import System.IO(stdin)
 -- ghci> readGraphLine stdin Map.empty
 -- A:B,C,D
+
+-- stack ghc -- --make -Wall -O graph_colouring.hs
+-- ./graph_colouring samples/CLIQUE_300_3.3color 3
+main :: IO ()
+main = do
+  args <- getArgs
+  case args of
+    [graph_file, number_colours] -> do
+      let colours = read number_colours
+      g <- readGraphFile graph_file
+      let result = isValidGraph $ colorGraph (Map.keys g) [1..colours] g
+      if result then do 
+        putStrLn "Successfully coloured graph"
+      else do 
+        putStrLn "Unable to colour graph"
+
+    _ -> do 
+        pn <- getProgName
+        die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors>"
+
+
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
                             case args of
                               [node, adj] -> return $ Map.insert node (readAdjList adj, 0) g
-                              _           -> return g
-                            
+                              _           -> return g                          
 
 -- construct a graph from input file
 -- g <- readGraphFile "samples/CLIQUE_300_3.3color"
