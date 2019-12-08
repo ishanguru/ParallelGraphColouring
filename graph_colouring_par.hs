@@ -110,7 +110,7 @@ colorNodePar _ [] _ = []
 colorNodePar n c g = parMap rseq (\x -> validColor n g x) c
 
 colorNodePar2 :: Node -> [Color] -> Graph -> [Bool]
-colorNodePar2 n c g = takeWhile (\x -> not x) [ x | x <- parMap rseq (validColor n g) c]
+colorNodePar2 n c g = takeWhile (\x -> not x) [ x | x <- parMap rpar (validColor n g) c]
 --colorNodePar2 n c g = [ x | x <- parMap rseq (validColor n g) c, not x ]
 
 colorNode :: Node -> [Color] -> Graph -> Color
