@@ -16,24 +16,32 @@ type Graph = Map.Map(Node) (AdjList, Color)
 -- ghci> readGraphLine stdin Map.empty
 -- A:B,C,D
 
--- stack ghc -- --make -Wall -O graph_colouring.hs
+-- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
 -- ./graph_colouring samples/CLIQUE_300_3.3color 3
 main :: IO ()
 main = do
   args <- getArgs
+  pn <- getProgName
   case args of
-    [graph_file, number_colours] -> do
+    [graph_file, number_colours, algo] -> do
       let colours = read number_colours
       g <- readGraphFile graph_file
-      let result = isValidGraph $ colorGraph (Map.keys g) [1..colours] g
-      if result then do 
-        putStrLn "Successfully coloured graph"
-      else do 
-        putStrLn "Unable to colour graph"
+      case algo of
+        "seq" -> do 
+          let result = isValidGraph $ colorGraphSeq (Map.keys g) [1..colours] g
+          response result
+        "par" -> do 
+          let result = isValidGraph $ colorGraphPar (Map.keys g) [1..colours] g
+          response result
+        _ -> do 
+          die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par>"
 
     _ -> do 
-        pn <- getProgName
-        die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors>"
+        die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par>"
+
+response :: Bool -> IO ()
+response True = putStrLn "Successfully coloured graph"
+response False = putStrLn "Unable to colour graph"
 
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
@@ -88,14 +96,26 @@ setColor g n c = case Map.lookup n g of
 
 -- assigns a colour to each node in the graph
 -- e.g. colorGraph (Map.keys g) [1,2,3,4] g
-colorGraph :: [Node] -> [Color] -> Graph -> Graph
-colorGraph _ [] g = g
-colorGraph [] _ g = g
-colorGraph (n:ns) colors g
+colorGraphSeq :: [Node] -> [Color] -> Graph -> Graph
+colorGraphSeq _ [] g = g
+colorGraphSeq [] _ g = g
+colorGraphSeq (n:ns) colors g
   | allVerticesColored g = g
   | otherwise = 
       if nodeColor > 0 then do
-        colorGraph ns colors $ setColor g n nodeColor
+        colorGraphSeq ns colors $ setColor g n nodeColor
+      else do
+        error "can't color graph"
+      where nodeColor = colorNode n colors g
+
+colorGraphPar :: [Node] -> [Color] -> Graph -> Graph
+colorGraphPar _ [] g = g
+colorGraphPar [] _ g = g
+colorGraphPar (n:ns) colors g
+  | allVerticesColored g = g
+  | otherwise = 
+      if nodeColor > 0 then do
+        colorGraphPar ns colors $ setColor g n nodeColor
       else do
         error "can't color graph"
       where nodeColor = colorNode n colors g
