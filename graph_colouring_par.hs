@@ -3,7 +3,7 @@ import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
 import Control.Parallel.Strategies
-import Data.List
+
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
@@ -107,7 +107,7 @@ colorGraph (n:ns) colors g
 
 colorNodePar :: Node -> [Color] -> Graph -> [Bool]
 colorNodePar _ [] _ = []
-colorNodePar n c g = parMap rseq (\x -> validColor n g x) c
+colorNodePar n c g = parMap rpar (\x -> validColor n g x) c
 
 colorNodePar2 :: Node -> [Color] -> Graph -> [Bool]
 colorNodePar2 n c g = takeWhile (\x -> not x) [ x | x <- parMap rpar (validColor n g) c]
@@ -131,14 +131,17 @@ allVerticesColored :: Graph -> Bool
 allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
 
 isValidGraph :: Graph -> Bool
-isValidGraph g = isValidGraph' (Map.keys g) g
+isValidGraph g = isValidGraphPar (Map.keys g) g
 
-isValidGraph' :: [Node] -> Graph -> Bool
-isValidGraph' [] _ = False
-isValidGraph' [n] g = getColor n g >= 0
-isValidGraph' (n:ns) g 
-    | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
-    | otherwise = False
+isValidGraphPar :: [Node] -> Graph -> Bool
+isValidGraphPar [] _ = False
+isValidGraphPar [n] g = getColor n g `notElem` getColors (getNeighbors n g) g
+isValidGraphPar nodes g = runEval $ do
+    front <- rpar $ isValidGraphPar first g
+    back <- rpar $ isValidGraphPar second g
+    return $ front && back
+  where first = take ((length nodes) `div` 2) nodes
+        second = drop ((length nodes) `div` 2) nodes
 
 -- checks if this color can be assigned to a vertex
 -- e.g. validColor "A" 1 g
