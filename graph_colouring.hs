@@ -2,6 +2,7 @@ import qualified Data.Map as Map
 import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
+import Control.Parallel(par)
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -119,6 +120,18 @@ colorGraphPar (n:ns) colors g
       else do
         error "can't color graph"
       where nodeColor = colorNode n colors g
+
+{-
+
+This somehow needs to be parallel
+
+if nodeColor > 0 then do
+        colorGraphPar ns colors $ setColor g n nodeColor
+      else do
+        error "can't color graph"
+      where nodeColor = colorNode n colors g
+
+-}      
 
 colorNode :: Node -> [Color] -> Graph -> Color
 colorNode _ [] _ = 0
