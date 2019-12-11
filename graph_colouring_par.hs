@@ -27,6 +27,7 @@ main = do
       let colours = read number_colours
       g <- readGraphFile graph_file
       let output = colorGraph (Map.keys g) [1..colours] g
+      print $ getColors (Map.keys output) output
       let result = isValidGraph $ output
 
       if result then do 
@@ -80,7 +81,7 @@ getColors [] _ = []
 getColors (x:xs) g = getColor x g : getColors xs g
 
 -- gets all neighbors for a node in a graph
-getNeighbors :: Node -> Graph -> AdjList
+getNeighbors :: Node -> Graph -> [Node]
 getNeighbors n g = case Map.lookup n g of
                  Just v -> (fst v)
                  Nothing -> []
@@ -104,6 +105,26 @@ colorGraph (n:ns) colors g
       else do
         error "can't color graph"
       where nodeColor = colorNode n colors g
+
+colorGraphPar :: [Node] -> [Color] -> Graph -> Graph
+colorGraphPar _ [] g = g
+colorGraphPar [] _ g = g
+colorGraphPar [n] colors g
+  | allVerticesColored g = g
+  | otherwise = 
+      if nodeColor > 0 then do
+          setColor g n nodeColor
+      else do
+          error "can't color graph"
+      where nodeColor = colorNode n colors g
+colorGraphPar nodes colors g
+  | allVerticesColored g = g
+  | otherwise = runEval $ do
+    front <- rpar $ colorGraphPar first colors g
+    back <- rpar $ colorGraphPar second colors g
+    return $ Map.union front back
+    where first = take ((length nodes) `div` 2) nodes
+          second = drop ((length nodes) `div` 2) nodes
 
 colorNodePar :: Node -> [Color] -> Graph -> [Bool]
 colorNodePar _ [] _ = []
