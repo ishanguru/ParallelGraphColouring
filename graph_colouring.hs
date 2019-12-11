@@ -24,25 +24,34 @@ main = do
   args <- getArgs
   pn <- getProgName
   case args of
-    [graph_file, number_colours, algo] -> do
+    [graph_file, number_colours, algo, outFolder] -> do
       let colours = read number_colours
+      let outFile = outFolder ++ graph_file ++ "_out"
       g <- readGraphFile graph_file
       case algo of
         "seq" -> do 
-          let result = isValidGraph $ colorGraphSeq (Map.keys g) [1..colours] g
-          response result
+          let output = colorGraphSeq (Map.keys g) [1..colours] g
+          let isValid = isValidGraph output
+          response isValid
+          writeToFile output outFile isValid
         "par" -> do 
-          let result = isValidGraph $ colorGraphPar (Map.keys g) [1..colours] g
-          response result
+          let output = colorGraphPar (Map.keys g) [1..colours] g
+          let isValid = isValidGraph output
+          response isValid
+          writeToFile output outFile isValid
         _ -> do 
-          die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par>"
+          die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par> <output-folder>"
 
     _ -> do 
-        die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par>"
+        die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par> <output-folder>"
 
 response :: Bool -> IO ()
 response True = putStrLn "Successfully coloured graph"
 response False = putStrLn "Unable to colour graph"
+
+writeToFile :: Graph -> String -> Bool -> IO ()
+writeToFile g fout valid | valid == True = writeFile fout ("true\n" ++ printSolution g)
+                         | otherwise = writeFile fout "false\n"
 
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
@@ -158,4 +167,7 @@ isValidGraph' (n:ns) g
 validColor :: Node -> Color -> Graph -> Bool
 validColor n c g = c `notElem` getColors (getNeighbors n g) g
 
-
+printSolution :: Graph -> String
+printSolution g = unlines $ map (\n -> n ++ ':' : showColor n ) nodes
+                  where nodes = Map.keys g
+                        showColor n = show $ getColor n g
