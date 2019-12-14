@@ -8,9 +8,10 @@ import System.Directory
 --import Control.Monad.Par.Combinator
 --import Control.Monad.Par.IO as ParIO
 import Control.Parallel.Strategies
---import Control.Exception (evaluate)
+import Control.Exception (evaluate)
 import Control.DeepSeq
-
+import System.CPUTime
+import Control.Monad
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
@@ -23,6 +24,15 @@ type Graph = Map.Map(Node) (AdjList, Color)
 -- ghci> import System.IO(stdin)
 -- ghci> readGraphLine stdin Map.empty
 -- A:B,C,D
+--
+
+foldrM' :: Monad m => (a -> m b -> m b) -> m b -> [m a] -> m b
+foldrM' f z = act
+  where
+    act [] = z
+    act (x:xs) = ($ act xs) . f =<< x
+    -- Or: act (x:xs) = x >>= \x' -> f x' $ act xs
+
 
 -- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
 -- ./graph_colouring samples/CLIQUE_300_3.3color 3
@@ -35,7 +45,7 @@ main = do
       filepaths <- filter isValidFile <$> getDirectoryContents inFolder
       let colours = read number_colours
       let solutions = parMap rseq (\f -> colorAGraph f colours outFolder inFolder) filepaths
-      
+      print =<< foldrM' (\acc x -> x >>= \x' -> return (acc++ " "++ x')) (return "") solutions
       --mapM_ (\f -> colorAGraph f colours outFolder inFolder) files
 
       putStrLn "done"
@@ -43,25 +53,25 @@ main = do
     _ -> do 
         die $ "Usage: " ++ pn ++ " <input-folder> <number-of-colors> <algo: seq or par> <output-folder>"
 
-colorAGraph :: FilePath -> Color -> String -> String -> IO Bool
+colorAGraph :: FilePath -> Color -> String -> String ->  IO String
 colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               let output =  isValidGraph $  colorGraphSeq (Map.keys g) [1..colours] g
-              response output graph_file
+              msg <- response output graph_file
               writeToFile output outFile
               
-              return True
+              return msg
               
 
 isValidFile :: FilePath -> Bool
 isValidFile f =  "3color" /=  last ( wordsWhen (=='.') (show f) ) && f /= "." && f /= ".."
               
 
-response :: Maybe Graph -> String -> IO ()
+response :: Maybe Graph -> String -> IO String
 response g fname = case g of
-                    Just _ -> do putStrLn $ "Successfully coloured graph " ++ fname
-                    Nothing -> do  putStrLn $ "Unable to colour graph "  ++ fname
+                    Just _ -> return $ "Successfully coloured graph " ++ fname
+                    Nothing ->  return $ "Unable to colour graph "  ++ fname
 
 writeToFile :: Maybe Graph -> String -> IO ()
 writeToFile g fout = case g of
