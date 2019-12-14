@@ -117,9 +117,7 @@ colorGraphPar [n] colors g
       else do
           error "can't color graph"
       where nodeColor = colorNode n colors g
-colorGraphPar nodes colors g
-  | allVerticesColored g = g
-  | otherwise = runEval $ do
+colorGraphPar nodes colors g = runEval $ do
     front <- rpar $ colorGraphPar first colors g
     back <- rpar $ colorGraphPar second colors g
     return $ Map.union front back

@@ -3,6 +3,7 @@ import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
 import Control.Parallel(par)
+import System.Directory
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -24,7 +25,7 @@ main = do
   args <- getArgs
   pn <- getProgName
   case args of
-    [graph_file, number_colours, algo, outFolder] -> do
+    [graph_folder, number_colours, algo, outFolder] -> do
       let colours = read number_colours
       let outFile = outFolder ++ graph_file ++ "_out"
       g <- readGraphFile graph_file

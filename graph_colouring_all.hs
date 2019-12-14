@@ -1,9 +1,15 @@
+{-# LANGUAGE BangPatterns #-}
 import qualified Data.Map as Map
 import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
-import Control.Parallel(par)
 import System.Directory
+--import Control.Monad.IO.Class
+--import Control.Monad.Par.Combinator
+--import Control.Monad.Par.IO as ParIO
+import Control.Parallel.Strategies
+--import Control.Exception (evaluate)
+import Control.DeepSeq
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -26,9 +32,12 @@ main = do
   pn <- getProgName
   case args of
     [inFolder, number_colours, outFolder] -> do
-      all <- filter isValidFile <$> getDirectoryContents inFolder
+      filepaths <- filter isValidFile <$> getDirectoryContents inFolder
       let colours = read number_colours
-      mapM_ (\f -> colorAGraph f colours outFolder inFolder) all
+      let solutions = parMap rseq (\f -> colorAGraph f colours outFolder inFolder) filepaths
+      
+      --mapM_ (\f -> colorAGraph f colours outFolder inFolder) files
+
       putStrLn "done"
 
     _ -> do 
@@ -91,7 +100,7 @@ readAdjList x = wordsWhen (==',') x
 getColor :: Node -> Graph -> Color
 getColor n g = case Map.lookup n g of
                  Just v -> (snd v)
-                 Nothing -> error "not valid graph"
+                 Nothing -> 0
 
 -- given a list of nodes and a graph, retrieve all colour assignments to the node
 getColors :: [Node] -> Graph -> [Color]
@@ -142,7 +151,7 @@ isValidGraph g = case g of
 
 isValidGraph' :: [Node] -> Graph -> Maybe Graph
 isValidGraph' [] _ = Nothing
-isValidGraph' [n] g | getColor n g >= 0 = Just g
+isValidGraph' [n] g | getColor n g > 0 = Just g
                     | otherwise = Nothing
 isValidGraph' (n:ns) g 
     | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
