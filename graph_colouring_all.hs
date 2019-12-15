@@ -1,17 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 import qualified Data.Map as Map
 import System.Exit(die)
-import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
+import System.IO(Handle, hIsEOF, hGetLine, withFile,IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
 import System.Directory
 --import Control.Monad.IO.Class
 --import Control.Monad.Par.Combinator
 --import Control.Monad.Par.IO as ParIO
 import Control.Parallel.Strategies
-import Control.Exception (evaluate)
-import Control.DeepSeq
-import System.CPUTime
-import Control.Monad
+import Data.Maybe as Maybe
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
@@ -43,8 +40,14 @@ main = do
   case args of
     [inFolder, number_colours, outFolder] -> do
       filepaths <- filter isValidFile <$> getDirectoryContents inFolder
+      print filepaths
       let colours = read number_colours
+      
       let solutions = parMap rseq (\f -> colorAGraph f colours outFolder inFolder) filepaths
+      -- let graphs = parMap rseq (\f -> readGraphFile $ inFolder ++ f) filepaths
+      -- let solutions = map (\f -> colorGraph f "test" colours outFolder inFolder) graphs `using` parList rseq
+      -- let solutions = colorAllGraph filepaths colours outFolder inFolder
+
       print =<< foldrM' (\acc x -> x >>= \x' -> return (acc++ " "++ x')) (return "") solutions
       --mapM_ (\f -> colorAGraph f colours outFolder inFolder) files
 
@@ -53,16 +56,26 @@ main = do
     _ -> do 
         die $ "Usage: " ++ pn ++ " <input-folder> <number-of-colors> <algo: seq or par> <output-folder>"
 
-colorAGraph :: FilePath -> Color -> String -> String ->  IO String
+colorAGraph :: FilePath -> Color -> String -> String -> IO String
 colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               let output =  isValidGraph $  colorGraphSeq (Map.keys g) [1..colours] g
               msg <- response output graph_file
               writeToFile output outFile
-              
               return msg
-              
+
+{-
+
+colorAllGraph :: [FilePath] -> Color -> String -> String -> [IO String]
+colorAllGraph [x] colours outFolder inFolder = [colorAGraph x colours outFolder inFolder]
+colorAllGraph graph_files colours outFolder inFolder = runEval $ do
+    front <- rpar $ colorAllGraph first colours outFolder inFolder
+    back <- rpar $ colorAllGraph second colours outFolder inFolder
+    return $ front ++ back
+  where first = take ((length graph_files) `div` 2) graph_files
+        second = drop ((length graph_files) `div` 2) graph_files
+-}              
 
 isValidFile :: FilePath -> Bool
 isValidFile f =  "3color" /=  last ( wordsWhen (=='.') (show f) ) && f /= "." && f /= ".."
@@ -82,8 +95,7 @@ readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
                             case args of
                               [node, adj] -> return $ Map.insert node (readAdjList adj, 0) g
-                              _           -> return g                          
-
+                              _           -> return g
 -- construct a graph from input file
 -- g <- readGraphFile "samples/CLIQUE_300_3.3color"
 readGraphFile :: String -> IO Graph
@@ -157,15 +169,20 @@ allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
 isValidGraph :: Maybe Graph -> Maybe Graph
 isValidGraph g = case g of
                   Nothing -> Nothing
-                  Just a -> isValidGraph' (Map.keys a) a
+                  Just a -> isValidGraphPar (Map.keys a) a
 
-isValidGraph' :: [Node] -> Graph -> Maybe Graph
-isValidGraph' [] _ = Nothing
-isValidGraph' [n] g | getColor n g > 0 = Just g
-                    | otherwise = Nothing
-isValidGraph' (n:ns) g 
-    | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
-    | otherwise = Nothing
+isValidGraphPar :: [Node] -> Graph -> Maybe Graph
+isValidGraphPar [] _ = Nothing
+isValidGraphPar [n] g | getColor n g `notElem` getColors (getNeighbors n g) g = Just g
+                      | otherwise = Nothing
+isValidGraphPar nodes g 
+  | runEval $ do
+      front <- rpar $ isValidGraphPar first g
+      back <- rpar $ isValidGraphPar second g
+      return (Maybe.isJust front && Maybe.isJust back) = Just g
+  | otherwise = Nothing
+  where first = take ((length nodes) `div` 2) nodes
+        second = drop ((length nodes) `div` 2) nodes
 
 -- checks if this color can be assigned to a vertex
 -- e.g. validColor "A" 1 g
