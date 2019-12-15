@@ -136,9 +136,9 @@ colorGraphPar nodes colors g
 merge :: [Node] -> [Color] -> Graph -> Graph
 merge [] _ g = g
 merge [x] colors g = setColors g (findClashingNodes x g) $ head updateColors 
-  where updateColors = List.delete (getColor x g) colors
+  where updateColors = filter (validColor x g) colors
 merge (x:xs) colors g = merge xs colors $ setColors g (findClashingNodes x g) $ head updateColors
-  where updateColors = List.delete (getColor x g) colors
+  where updateColors = filter (validColor x g) colors
 
 findClashingNodes :: Node -> Graph -> [Node]
 findClashingNodes n g = [ x | x <- (getNeighbors n g), (getColor n g) == (getColor x g) ]
@@ -148,25 +148,13 @@ subGraph [] _ x = x
 subGraph [n] g x = Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x)
 subGraph (n:ns) g x = subGraph ns g (Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x))
 
-colorNodePar :: Node -> [Color] -> Graph -> [Bool]
-colorNodePar _ [] _ = []
-colorNodePar n c g = parMap rpar (\x -> validColor n g x) c
-
-colorNodePar2 :: Node -> [Color] -> Graph -> [Bool]
-colorNodePar2 n c g = takeWhile (\x -> not x) [ x | x <- map (validColor n g) c `using` parList rpar]
---colorNodePar2 n c g = [ x | x <- parMap rseq (validColor n g) c, not x ]
-
 colorNode :: Node -> [Color] -> Graph -> Color
 colorNode n c g | ncolors == length c = 0
                 | otherwise = ncolors + 1
-                where ncolors = length $ colorNodePar2 n c g
+                where ncolors = length $ colorNodePar n c g
 
-{-
-colorNode :: Node -> [Color] -> Graph -> Color
-colorNode _ [] _ = 0
-colorNode n (x:xs) g = if validColor n g x then do x
-                              else do colorNode n xs g
--}
+colorNodePar :: Node -> [Color] -> Graph -> [Bool]
+colorNodePar n c g = takeWhile (\x -> not x) [ x | x <- map (validColor n g) c `using` parList rpar]
 
 -- checks if all vertices have been coloured
 -- e.g. allVerticesColored g
@@ -186,8 +174,6 @@ isValidGraphPar nodes g = runEval $ do
   where first = take ((length nodes) `div` 2) nodes
         second = drop ((length nodes) `div` 2) nodes
 
--- checks if this color can be assigned to a vertex
--- e.g. validColor "A" 1 g
 validColor :: Node -> Graph -> Color -> Bool
 validColor n g c = c `notElem` getColors (getNeighbors n g) g
 
