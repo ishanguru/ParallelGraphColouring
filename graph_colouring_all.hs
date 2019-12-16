@@ -41,7 +41,6 @@ main = do
   case args of
     [inFolder, number_colours, outFolder] -> do
       filepaths <- filter isValidFile <$> getDirectoryContents inFolder
-      print filepaths
       let colours = read number_colours
       responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f colours outFolder inFolder) filepaths
       mapM_ putStrLn responses
@@ -67,6 +66,7 @@ colorAGraph :: FilePath -> Color -> String -> String -> IO String
 colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
+              putStrLn ("coloring " ++ graph_file ++ " .. ")
               let output =  isValidGraph $  colorGraph (Map.keys g) [1..colours] [1..colours] g
               response output graph_file
               writeToFile output outFile
