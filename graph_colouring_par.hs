@@ -3,6 +3,7 @@ import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
 import Control.Parallel.Strategies
+import qualified Data.List as List
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -73,7 +74,7 @@ readAdjList x = wordsWhen (==',') x
 getColor :: Node -> Graph -> Color
 getColor n g = case Map.lookup n g of
                  Just v -> (snd v)
-                 Nothing -> error "not valid graph"
+                 Nothing -> 0
 
 -- given a list of nodes and a graph, retrieve all colour assignments to the node
 getColors :: [Node] -> Graph -> [Color]
@@ -81,7 +82,7 @@ getColors [] _ = []
 getColors (x:xs) g = getColor x g : getColors xs g
 
 -- gets all neighbors for a node in a graph
-getNeighbors :: Node -> Graph -> [Node]
+getNeighbors :: Node -> Graph -> AdjList
 getNeighbors n g = case Map.lookup n g of
                  Just v -> (fst v)
                  Nothing -> []
@@ -91,6 +92,11 @@ setColor :: Graph -> Node -> Color -> Graph
 setColor g n c = case Map.lookup n g of
                   Just v -> Map.insert n ((fst v), c) g
                   Nothing -> g
+
+setColors :: Graph -> [Node] -> Color -> Graph
+setColors g [] _ = g
+setColors g [n] c = setColor g n c
+setColors g (n:ns) c = setColors (setColor g n c) ns c
 
 -- assigns a colour to each node in the graph
 -- e.g. colorGraph (Map.keys g) [1,2,3,4] g
@@ -117,32 +123,38 @@ colorGraphPar [n] colors g
       else do
           error "can't color graph"
       where nodeColor = colorNode n colors g
-colorGraphPar nodes colors g = runEval $ do
-    front <- rpar $ colorGraphPar first colors g
-    back <- rpar $ colorGraphPar second colors g
-    return $ Map.union front back
+colorGraphPar nodes colors g
+  | allVerticesColored g = g
+  | otherwise = runEval $ do
+    front <- rpar $ colorGraphPar first colors $ subGraph first g Map.empty
+    back <- rpar $ colorGraphPar second colors $ subGraph second g Map.empty
+    let join  = Map.union front back
+    return $ merge (Map.keys join) colors join
     where first = take ((length nodes) `div` 2) nodes
           second = drop ((length nodes) `div` 2) nodes
 
-colorNodePar :: Node -> [Color] -> Graph -> [Bool]
-colorNodePar _ [] _ = []
-colorNodePar n c g = parMap rpar (\x -> validColor n g x) c
+merge :: [Node] -> [Color] -> Graph -> Graph
+merge [] _ g = g
+merge [x] colors g = setColors g (findClashingNodes x g) $ head updateColors 
+  where updateColors = filter (validColor x g) colors
+merge (x:xs) colors g = merge xs colors $ setColors g (findClashingNodes x g) $ head updateColors
+  where updateColors = filter (validColor x g) colors
 
-colorNodePar2 :: Node -> [Color] -> Graph -> [Bool]
-colorNodePar2 n c g = takeWhile (\x -> not x) [ x | x <- map (validColor n g) c `using` parList rpar]
---colorNodePar2 n c g = [ x | x <- parMap rseq (validColor n g) c, not x ]
+findClashingNodes :: Node -> Graph -> [Node]
+findClashingNodes n g = [ x | x <- (getNeighbors n g), (getColor n g) == (getColor x g) ]
+
+subGraph :: [Node] -> Graph -> Graph -> Graph 
+subGraph [] _ x = x
+subGraph [n] g x = Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x)
+subGraph (n:ns) g x = subGraph ns g (Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x))
 
 colorNode :: Node -> [Color] -> Graph -> Color
 colorNode n c g | ncolors == length c = 0
                 | otherwise = ncolors + 1
-                where ncolors = length $ colorNodePar2 n c g
+                where ncolors = length $ colorNodePar n c g
 
-{-
-colorNode :: Node -> [Color] -> Graph -> Color
-colorNode _ [] _ = 0
-colorNode n (x:xs) g = if validColor n g x then do x
-                              else do colorNode n xs g
--}
+colorNodePar :: Node -> [Color] -> Graph -> [Bool]
+colorNodePar n c g = takeWhile (\x -> not x) [ x | x <- map (validColor n g) c `using` parList rpar]
 
 -- checks if all vertices have been coloured
 -- e.g. allVerticesColored g
@@ -162,8 +174,6 @@ isValidGraphPar nodes g = runEval $ do
   where first = take ((length nodes) `div` 2) nodes
         second = drop ((length nodes) `div` 2) nodes
 
--- checks if this color can be assigned to a vertex
--- e.g. validColor "A" 1 g
 validColor :: Node -> Graph -> Color -> Bool
 validColor n g c = c `notElem` getColors (getNeighbors n g) g
 
