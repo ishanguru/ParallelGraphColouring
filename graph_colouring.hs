@@ -136,7 +136,9 @@ colorGraph _ _ [] _ = Nothing
 colorGraph _ [] _ g = Just g
 colorGraph [] _ _ g = Just g
 colorGraph nodes@(n:ns) colors (c:cs) g
-      | validColor n c g = colorGraph ns colors colors $ setColor g n c
+      | validColor n c g = case (colorGraph ns colors colors $ setColor g n c) of
+                              Just gout -> Just gout
+                              Nothing -> colorGraph nodes colors cs g
       | otherwise = colorGraph nodes colors cs g
 
 colorGraphPar :: [Node] -> [Color] -> Graph -> Maybe Graph

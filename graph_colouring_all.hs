@@ -4,15 +4,16 @@ import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile,IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
 import System.Directory
---import Control.Monad.IO.Class
---import Control.Monad.Par.Combinator
---import Control.Monad.Par.IO as ParIO
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Par.Combinator (parMapM)
+import Control.Monad.Par.IO (runParIO)
 import Control.Parallel.Strategies
 import Data.Maybe as Maybe
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
 -- http://ijmcs.future-in-tech.net/11.1/R-Anderson.pdf
+-- https://gist.github.com/nh2/bfa3f182da9d13baa536
 
 type Node = String
 type Color = Int
@@ -42,13 +43,19 @@ main = do
       filepaths <- filter isValidFile <$> getDirectoryContents inFolder
       print filepaths
       let colours = read number_colours
+      responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f colours outFolder inFolder) filepaths
+      mapM_ putStrLn responses
+
+      --start <- getCPUTime
+      --let problems = colorAll filepaths colours inFolder outFolder
+      --end <- r `deepseq` getCPUTime
       
-      let solutions = parMap rseq (\f -> colorAGraph f colours outFolder inFolder) filepaths
+      --let solutions = parMap rseq (\f -> colorAGraph f colours outFolder inFolder) filepaths
       -- let graphs = parMap rseq (\f -> readGraphFile $ inFolder ++ f) filepaths
       -- let solutions = map (\f -> colorGraph f "test" colours outFolder inFolder) graphs `using` parList rseq
       -- let solutions = colorAllGraph filepaths colours outFolder inFolder
 
-      print =<< foldrM' (\acc x -> x >>= \x' -> return (acc++ " "++ x')) (return "") solutions
+      --print =<< foldrM' (\acc x -> x >>= \x' -> return (acc++ " "++ x')) (return "") solutions
       --mapM_ (\f -> colorAGraph f colours outFolder inFolder) files
 
       putStrLn "done"
@@ -60,10 +67,10 @@ colorAGraph :: FilePath -> Color -> String -> String -> IO String
 colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
-              let output =  isValidGraph $  colorGraphSeq (Map.keys g) [1..colours] g
-              msg <- response output graph_file
+              let output =  isValidGraph $  colorGraph (Map.keys g) [1..colours] [1..colours] g
+              response output graph_file
               writeToFile output outFile
-              return msg
+              return $ "done" ++ inFolder
 
 {-
 
@@ -81,10 +88,10 @@ isValidFile :: FilePath -> Bool
 isValidFile f =  "3color" /=  last ( wordsWhen (=='.') (show f) ) && f /= "." && f /= ".."
               
 
-response :: Maybe Graph -> String -> IO String
+response :: Maybe Graph -> String -> IO ()
 response g fname = case g of
-                    Just _ -> return $ "Successfully coloured graph " ++ fname
-                    Nothing ->  return $ "Unable to colour graph "  ++ fname
+                    Just _ -> putStrLn ("Successfully coloured graph " ++ fname)
+                    Nothing ->  putStrLn ("Unable to colour graph "  ++ fname)
 
 writeToFile :: Maybe Graph -> String -> IO ()
 writeToFile g fout = case g of
@@ -143,28 +150,15 @@ setColor g n c = case Map.lookup n g of
 
 -- assigns a colour to each node in the graph
 -- e.g. colorGraph (Map.keys g) [1,2,3,4] g
-colorGraphSeq :: [Node] -> [Color] -> Graph -> Maybe Graph
-colorGraphSeq _ [] g = Just g
-colorGraphSeq [] _ g = Just g
-colorGraphSeq (n:ns) colors g
-  | allVerticesColored g = Just g
-  | otherwise = 
-      if nodeColor > 0 then do
-        colorGraphSeq ns colors $ setColor g n nodeColor
-      else do
-        Nothing
-      where nodeColor = colorNode n colors g
-
-
-colorNode :: Node -> [Color] -> Graph -> Color
-colorNode _ [] _ = 0
-colorNode n (x:xs) g = if validColor n x g then do x
-                              else do colorNode n xs g
-
--- checks if all vertices have been coloured
--- e.g. allVerticesColored g
-allVerticesColored :: Graph -> Bool
-allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
+colorGraph :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
+colorGraph _ [] _ g = Just g
+colorGraph [] _ _ g = Just g
+colorGraph _ _ [] _ = Nothing
+colorGraph nodes@(n:ns) colors (c:cs) g
+      | validColor n c g = case (colorGraph ns colors colors $ setColor g n c) of
+                              Just gout -> Just gout
+                              Nothing -> colorGraph nodes colors cs g
+      | otherwise = colorGraph nodes colors cs g
 
 isValidGraph :: Maybe Graph -> Maybe Graph
 isValidGraph g = case g of
