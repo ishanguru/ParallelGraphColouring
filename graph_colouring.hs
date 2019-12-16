@@ -2,8 +2,6 @@ import qualified Data.Map as Map
 import System.Exit(die)
 import System.IO(Handle, hIsEOF, hGetLine, withFile, IOMode(ReadMode))
 import System.Environment(getArgs, getProgName)
-import Control.Parallel(par)
-import System.Directory
 
 -- resources:
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
@@ -25,21 +23,32 @@ main = do
   args <- getArgs
   pn <- getProgName
   case args of
-    [graph_folder, number_colours, algo, outFolder] -> do
+    [graph_file, number_colours, algo, outFolder] -> do
       let colours = read number_colours
-      let outFile = outFolder ++ graph_file ++ "_out"
+      let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
       g <- readGraphFile graph_file
       case algo of
+        "back" -> do 
+          let output = colorGraph (Map.keys g) [1..colours] [1..colours] g
+          let isValid = case output of
+                            Just gr -> isValidGraph gr
+                            Nothing -> False
+          response isValid
+          writeToFile' output outFile
         "seq" -> do 
           let output = colorGraphSeq (Map.keys g) [1..colours] g
-          let isValid = isValidGraph output
+          let isValid = case output of
+                            Just gr -> isValidGraph gr
+                            Nothing -> False
           response isValid
-          writeToFile output outFile isValid
+          writeToFile' output outFile
         "par" -> do 
           let output = colorGraphPar (Map.keys g) [1..colours] g
-          let isValid = isValidGraph output
+          let isValid = case output of
+                            Just gr -> isValidGraph gr
+                            Nothing -> False
           response isValid
-          writeToFile output outFile isValid
+          writeToFile' output outFile
         _ -> do 
           die $ "Usage: " ++ pn ++ " <graph-filename> <number-of-colors> <algo: seq or par> <output-folder>"
 
@@ -50,9 +59,10 @@ response :: Bool -> IO ()
 response True = putStrLn "Successfully coloured graph"
 response False = putStrLn "Unable to colour graph"
 
-writeToFile :: Graph -> String -> Bool -> IO ()
-writeToFile g fout valid | valid == True = writeFile fout ("true\n" ++ printSolution g)
-                         | otherwise = writeFile fout "false\n"
+writeToFile' :: Maybe Graph -> String -> IO ()
+writeToFile' g fout = case g of
+                      Just a -> do writeFile fout ("true\n" ++ printSolution a)
+                      Nothing -> do writeFile fout "false\n"
 
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
@@ -107,41 +117,39 @@ setColor g n c = case Map.lookup n g of
 
 -- assigns a colour to each node in the graph
 -- e.g. colorGraph (Map.keys g) [1,2,3,4] g
-colorGraphSeq :: [Node] -> [Color] -> Graph -> Graph
-colorGraphSeq _ [] g = g
-colorGraphSeq [] _ g = g
+colorGraphSeq :: [Node] -> [Color] -> Graph -> Maybe Graph
+colorGraphSeq _ [] g = Just g
+colorGraphSeq [] _ g = Just g
 colorGraphSeq (n:ns) colors g
-  | allVerticesColored g = g
+  | allVerticesColored g = Just g
   | otherwise = 
       if nodeColor > 0 then do
         colorGraphSeq ns colors $ setColor g n nodeColor
       else do
-        error "can't color graph"
+        Nothing
       where nodeColor = colorNode n colors g
 
-colorGraphPar :: [Node] -> [Color] -> Graph -> Graph
-colorGraphPar _ [] g = g
-colorGraphPar [] _ g = g
+-- assigns a colour to each node in the graph
+-- e.g. colorGraph (Map.keys g) [1,2,3,4] g
+colorGraph :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
+colorGraph _ _ [] _ = Nothing
+colorGraph _ [] _ g = Just g
+colorGraph [] _ _ g = Just g
+colorGraph nodes@(n:ns) colors (c:cs) g
+      | validColor n c g = colorGraph ns colors colors $ setColor g n c
+      | otherwise = colorGraph nodes colors cs g
+
+colorGraphPar :: [Node] -> [Color] -> Graph -> Maybe Graph
+colorGraphPar _ [] g = Just g
+colorGraphPar [] _ g = Just g
 colorGraphPar (n:ns) colors g
-  | allVerticesColored g = g
+  | allVerticesColored g = Just g
   | otherwise = 
       if nodeColor > 0 then do
         colorGraphPar ns colors $ setColor g n nodeColor
       else do
-        error "can't color graph"
+        Nothing
       where nodeColor = colorNode n colors g
-
-{-
-
-This somehow needs to be parallel
-
-if nodeColor > 0 then do
-        colorGraphPar ns colors $ setColor g n nodeColor
-      else do
-        error "can't color graph"
-      where nodeColor = colorNode n colors g
-
--}      
 
 colorNode :: Node -> [Color] -> Graph -> Color
 colorNode _ [] _ = 0
