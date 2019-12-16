@@ -28,15 +28,8 @@ main = do
       let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
       g <- readGraphFile graph_file
       case algo of
-        "back" -> do 
-          let output = colorGraph (Map.keys g) [1..colours] [1..colours] g
-          let isValid = case output of
-                            Just gr -> isValidGraph gr
-                            Nothing -> False
-          response isValid
-          writeToFile' output outFile
         "seq" -> do 
-          let output = colorGraphSeq (Map.keys g) [1..colours] g
+          let output = colorGraph (Map.keys g) [1..colours] [1..colours] g
           let isValid = case output of
                             Just gr -> isValidGraph gr
                             Nothing -> False
@@ -114,20 +107,6 @@ setColor :: Graph -> Node -> Color -> Graph
 setColor g n c = case Map.lookup n g of
                   Just v -> Map.insert n ((fst v), c) g
                   Nothing -> g
-
--- assigns a colour to each node in the graph
--- e.g. colorGraph (Map.keys g) [1,2,3,4] g
-colorGraphSeq :: [Node] -> [Color] -> Graph -> Maybe Graph
-colorGraphSeq _ [] g = Just g
-colorGraphSeq [] _ g = Just g
-colorGraphSeq (n:ns) colors g
-  | allVerticesColored g = Just g
-  | otherwise = 
-      if nodeColor > 0 then do
-        colorGraphSeq ns colors $ setColor g n nodeColor
-      else do
-        Nothing
-      where nodeColor = colorNode n colors g
 
 -- assigns a colour to each node in the graph
 -- e.g. colorGraph (Map.keys g) [1,2,3,4] g
