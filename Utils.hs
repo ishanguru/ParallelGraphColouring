@@ -2,6 +2,7 @@
 -- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
 -- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
 -- http://ijmcs.future-in-tech.net/11.1/R-Anderson.pdf
+-- Parallel IO -> https://gist.github.com/nh2/bfa3f182da9d13baa536
 
 module Utils
 ( Node,
