@@ -6,6 +6,7 @@ module GraphColoringAlgo
 
 import Utils
 
+import Data.List (sort)
 import qualified Data.Map as Map
 import Control.Parallel.Strategies (rpar, rseq, runEval, parListChunk, using, parMap, parBuffer)
 
@@ -27,6 +28,8 @@ colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               putStrLn ("coloring " ++ graph_file ++ " .. ")
+              --let nodes = sort $ map (read::String->Int) $ Map.keys g 
+              --let nodes2 = map (show) nodes
               let output =  checkValidColored $  backtracking (Map.keys g) [1..colours] [1..colours] g
               response output graph_file
               writeToFile output outFile
