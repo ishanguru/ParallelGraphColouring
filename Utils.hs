@@ -142,7 +142,7 @@ checkValidColored g = case g of
                   Just a -> checkValidColored' (Map.keys a) a
 
 checkValidColored' :: [Node] -> Graph -> Maybe Graph
-checkValidColored' [] _ = Nothing
+checkValidColored' [] g = Just g
 checkValidColored' (n:ns) g 
     | getColor n g `notElem` getColors (getNeighbors n g) g = checkValidColored' ns g
     | otherwise = Nothing
