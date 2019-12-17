@@ -28,7 +28,7 @@ colorAGraph graph_file colours outFolder inFolder = do
               let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               putStrLn ("coloring " ++ graph_file ++ " .. ")
-              let output =  isValidGraphPar $  colorGraph (Map.keys g) [1..colours] [1..colours] g
+              let output =  checkValidColored $  colorGraph (Map.keys g) [1..colours] [1..colours] g
               response output graph_file
               writeToFile output outFile
               return $ "done" ++ inFolder

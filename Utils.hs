@@ -18,8 +18,8 @@ module Utils
   setColor,
   validColor,
   allVerticesColored,
-  isValidGraph,
-  isValidGraphPar
+  checkValidColored,
+  checkValidColoredPar
 ) where
 
 import qualified Data.Map as Map
@@ -27,23 +27,26 @@ import System.IO(Handle, hIsEOF, hGetLine, withFile,IOMode(ReadMode))
 import Data.Maybe as Maybe
 import Control.Parallel.Strategies (rpar, runEval)
 
+-- Type to define a Graph as adjecncy list
 type Node = String
 type Color = Int
 type AdjList = [Node]
 type Graph = Map.Map(Node) (AdjList, Color)
 
+-- check if <graph> from <fname> is {un}successfully colored and prints out a message
 response :: Maybe Graph -> String -> IO ()
-response g fname = case g of
+response graph fname = case graph of
                     Just _ -> putStrLn ("Successfully coloured graph " ++ fname)
                     Nothing ->  putStrLn ("Unable to colour graph "  ++ fname)
 
+-- write <graph> to <fout>
 writeToFile :: Maybe Graph -> String -> IO ()
-writeToFile g fout = case g of
+writeToFile graph fout = case graph of
                       Just a -> do writeFile fout ("true\n" ++ printSolution a)
                       Nothing -> do writeFile fout "false\n"
 
--- construct a graph from input file
--- g <- readGraphFile "samples/CLIQUE_300_3.3color"
+-- construct a graph from <filename>
+-- ghci> g <- readGraphFile "samples/CLIQUE_300_3.3color"
 readGraphFile :: String -> IO Graph
 readGraphFile filename  = withFile filename ReadMode $ \handle -> loop handle readGraphLine Map.empty
 
@@ -115,30 +118,31 @@ printSolution g = unlines $ map (\n -> n ++ ':' : showColor n ) nodes
 allVerticesColored :: Graph -> Bool
 allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
 
-isValidGraph :: Graph -> Bool
-isValidGraph g = isValidGraph' (Map.keys g) g
-
-isValidGraph' :: [Node] -> Graph -> Bool
-isValidGraph' [] _ = False
-isValidGraph' [n] g = getColor n g >= 0
-isValidGraph' (n:ns) g 
-    | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
-    | otherwise = False
-
-isValidGraphPar :: Maybe Graph -> Maybe Graph
-isValidGraphPar g = case g of
+checkValidColoredPar :: Maybe Graph -> Maybe Graph
+checkValidColoredPar g = case g of
                   Nothing -> Nothing
-                  Just a -> isValidGraphPar' (Map.keys a) a
+                  Just a -> checkValidColoredPar' (Map.keys a) a
 
-isValidGraphPar' :: [Node] -> Graph -> Maybe Graph
-isValidGraphPar' [] _ = Nothing
-isValidGraphPar' [n] g | getColor n g `notElem` getColors (getNeighbors n g) g = Just g
+checkValidColoredPar' :: [Node] -> Graph -> Maybe Graph
+checkValidColoredPar' [] _ = Nothing
+checkValidColoredPar' [n] g | getColor n g `notElem` getColors (getNeighbors n g) g = Just g
                       | otherwise = Nothing
-isValidGraphPar' nodes g 
+checkValidColoredPar' nodes g 
   | runEval $ do
-      front <- rpar $ isValidGraphPar' first g
-      back <- rpar $ isValidGraphPar' second g
+      front <- rpar $ checkValidColoredPar' first g
+      back <- rpar $ checkValidColoredPar' second g
       return (Maybe.isJust front && Maybe.isJust back) = Just g
   | otherwise = Nothing
   where first = take ((length nodes) `div` 2) nodes
         second = drop ((length nodes) `div` 2) nodes
+
+checkValidColored :: Maybe Graph -> Maybe Graph
+checkValidColored g = case g of
+                  Nothing -> Nothing
+                  Just a -> checkValidColored' (Map.keys a) a
+
+checkValidColored' :: [Node] -> Graph -> Maybe Graph
+checkValidColored' [] _ = Nothing
+checkValidColored' (n:ns) g 
+    | getColor n g `notElem` getColors (getNeighbors n g) g = checkValidColored' ns g
+    | otherwise = Nothing
