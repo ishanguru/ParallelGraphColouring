@@ -1,3 +1,8 @@
+-- resources:
+-- https://stackoverflow.com/questions/4978578/how-to-split-a-string-in-haskell
+-- https://hackage.haskell.org/package/containers-0.4.2.0/docs/Data-Map.html#g:5
+-- http://ijmcs.future-in-tech.net/11.1/R-Anderson.pdf
+
 module Utils
 ( Node,
   Color,
@@ -11,11 +16,16 @@ module Utils
   getColors,
   getNeighbors,
   setColor,
-  validColor
+  validColor,
+  allVerticesColored,
+  isValidGraph,
+  isValidGraphPar
 ) where
 
 import qualified Data.Map as Map
 import System.IO(Handle, hIsEOF, hGetLine, withFile,IOMode(ReadMode))
+import Data.Maybe as Maybe
+import Control.Parallel.Strategies (rpar, runEval)
 
 type Node = String
 type Color = Int
@@ -37,6 +47,10 @@ writeToFile g fout = case g of
 readGraphFile :: String -> IO Graph
 readGraphFile filename  = withFile filename ReadMode $ \handle -> loop handle readGraphLine Map.empty
 
+-- reads a single line as graph
+-- ghci> import System.IO(stdin)
+-- ghci> readGraphLine stdin Map.empty
+-- A:B,C,D
 readGraphLine :: Handle -> Graph -> IO Graph
 readGraphLine handle g = do args  <- (wordsWhen (==':')) <$> hGetLine handle
                             case args of
@@ -95,3 +109,36 @@ printSolution :: Graph -> String
 printSolution g = unlines $ map (\n -> n ++ ':' : showColor n ) nodes
                   where nodes = Map.keys g
                         showColor n = show $ getColor n g
+
+-- checks if all vertices have been coloured
+-- e.g. allVerticesColored g
+allVerticesColored :: Graph -> Bool
+allVerticesColored g = 0 `notElem` getColors (Map.keys g) g
+
+isValidGraph :: Graph -> Bool
+isValidGraph g = isValidGraph' (Map.keys g) g
+
+isValidGraph' :: [Node] -> Graph -> Bool
+isValidGraph' [] _ = False
+isValidGraph' [n] g = getColor n g >= 0
+isValidGraph' (n:ns) g 
+    | getColor n g `notElem` getColors (getNeighbors n g) g = isValidGraph' ns g
+    | otherwise = False
+
+isValidGraphPar :: Maybe Graph -> Maybe Graph
+isValidGraphPar g = case g of
+                  Nothing -> Nothing
+                  Just a -> isValidGraphPar' (Map.keys a) a
+
+isValidGraphPar' :: [Node] -> Graph -> Maybe Graph
+isValidGraphPar' [] _ = Nothing
+isValidGraphPar' [n] g | getColor n g `notElem` getColors (getNeighbors n g) g = Just g
+                      | otherwise = Nothing
+isValidGraphPar' nodes g 
+  | runEval $ do
+      front <- rpar $ isValidGraphPar' first g
+      back <- rpar $ isValidGraphPar' second g
+      return (Maybe.isJust front && Maybe.isJust back) = Just g
+  | otherwise = Nothing
+  where first = take ((length nodes) `div` 2) nodes
+        second = drop ((length nodes) `div` 2) nodes
