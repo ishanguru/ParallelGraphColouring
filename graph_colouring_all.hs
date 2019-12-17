@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+-- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
 import Utils
 import qualified Data.Map as Map
 import System.Exit(die)
@@ -8,8 +8,6 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Par.Combinator (parMapM)
 import Control.Monad.Par.IO (runParIO)
 
--- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
--- ./graph_colouring samples/CLIQUE_300_3.3color 3
 main :: IO ()
 main = do
   args <- getArgs

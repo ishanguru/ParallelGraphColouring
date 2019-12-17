@@ -1,10 +1,9 @@
+-- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
 import Utils
 import qualified Data.Map as Map
 import System.Exit(die)
 import System.Environment(getArgs, getProgName)
 
--- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
--- ./graph_colouring samples/CLIQUE_300_3.3color 3
 main :: IO ()
 main = do
   args <- getArgs
