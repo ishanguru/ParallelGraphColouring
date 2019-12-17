@@ -9,6 +9,7 @@ module Utils
   AdjList,
   Graph,
   response,
+  wordsWhen,
   writeToFile,
   readGraphFile,
   isValidFile,

@@ -2,7 +2,6 @@
 import Utils
 import GraphColoringAlgo
 
-import qualified Data.Map as Map
 import System.Exit(die)
 import System.Environment(getArgs, getProgName)
 
@@ -20,11 +19,8 @@ main = do
       let colours = read number_colours
       case algo of
         "seq" -> do 
-          g <- readGraphFile graph_file
-          let output = checkValidColored $ colorGraph (Map.keys g) [1..colours] [1..colours] g
-          let outFile =  graph_file ++ "_out"
-          response output graph_file
-          writeToFile output outFile
+          msg <- colorAGraph graph_file colours outFolder ""
+          putStrLn msg
         "par" -> do 
           putStrLn "not implemented"
         "all" -> do

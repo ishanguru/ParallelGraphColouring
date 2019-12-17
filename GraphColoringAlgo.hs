@@ -21,12 +21,13 @@ colorGraph nodes@(n:ns) colors (c:cs) g
 
 colorAGraph :: FilePath -> Color -> String -> String -> IO String
 colorAGraph graph_file colours outFolder inFolder = do
-              let outFile = outFolder ++ "/" ++ graph_file ++ "_out"
+              let graph_file_name = last $ wordsWhen (=='/') graph_file
+              let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               putStrLn ("coloring " ++ graph_file ++ " .. ")
               let output =  checkValidColored $  colorGraph (Map.keys g) [1..colours] [1..colours] g
               response output graph_file
               writeToFile output outFile
-              return $ "done coloring " ++ inFolder
+              return $ "done coloring " ++ graph_file
 
 
