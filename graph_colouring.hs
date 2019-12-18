@@ -16,16 +16,17 @@ main :: IO ()
 main = do
   args <- getArgs
   pn <- getProgName
-  let errorMsg = "Usage: " ++ pn ++ " <input-{filename/foldername}> <number-of-colors> <algo: backtracking/IndepSet/greedy> <method: file/folder> <output-folder>"
+  let errorMsg = "Usage: " ++ pn ++ " <input-{filename/foldername}> <number-of-colors> <algo: {divide-conquer/backtracking/IndepSet/greedy}> <method: file/folder> <output-folder>"
   case args of
     [graph_file, number_colours, algo, method, outFolder] -> do
       func <- case algo of
         "backtracking" -> do
                 let colours = read number_colours
                 return (\g -> backtracking (Map.keys g) [1..colours] [1..colours] g)
-        "IndepSet" -> return (\g -> colorIndependent g g (Map.keys g) [1..])
+        "indep-set" -> return (\g -> colorIndependent g g (Map.keys g) [1..])
         "greedy" -> return (\g -> backtracking (Map.keys g) [1..] [1..] g)
-
+        "divide-conquer" -> do 
+          return (\g -> divideConquerPar (Map.keys g) g)
       case method of
         "file" -> do
           msg <- colorAGraph graph_file func outFolder ""

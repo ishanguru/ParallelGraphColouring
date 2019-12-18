@@ -22,8 +22,12 @@ module Utils
   allVerticesColored,
   checkValidColored,
   checkValidColoredPar,
-  getAllColors,
   colorAGraph,
+  findClashingNodes,
+  colorNode,
+  setColors,
+  isValidGraph,
+  getAllColors
 ) where
 
 import qualified Data.Map as Map
@@ -126,8 +130,8 @@ readAdjList x = wordsWhen (==',') x
 
 -- checks if this color can be assigned to a vertex
 -- e.g. validColor "A" 1 g
-validColor :: Node -> Color -> Graph -> Bool
-validColor n c g = c `notElem` getColors (getNeighbors n g) g
+validColor :: Node -> Graph -> Color -> Bool
+validColor n g c = c `notElem` getColors (getNeighbors n g) g
 
 printSolution :: Graph -> String
 printSolution g = unlines $ map (\n -> n ++ ':' : showColor n ) nodes
@@ -167,3 +171,30 @@ checkValidColored' [] g = Just g
 checkValidColored' (n:ns) g 
     | getColor n g `notElem` getColors (getNeighbors n g) g = checkValidColored' ns g
     | otherwise = Nothing
+
+
+findClashingNodes :: Node -> Graph -> [Node]
+findClashingNodes n g = [ x | x <- (getNeighbors n g), (getColor n g) == (getColor x g) ]
+
+
+colorNode :: Node -> [Color] -> Graph -> Color
+colorNode _ [] _ = 0
+colorNode n (x:xs) g = if validColor n g x then do x
+                              else do colorNode n xs g
+
+setColors :: Graph -> [Node] -> Color -> Graph
+setColors g [] _ = g
+setColors g [n] c = setColor g n c
+setColors g (n:ns) c = setColors (setColor g n c) ns c   
+
+isValidGraph :: Graph -> Bool
+isValidGraph g = isValidGraphPar (Map.keys g) g
+
+isValidGraphPar :: [Node] -> Graph -> Bool
+isValidGraphPar [] _ = False
+isValidGraphPar [n] g = getColor n g `notElem` getColors (getNeighbors n g) g
+isValidGraphPar nodes g = runEval $ do
+    front <- rpar $ isValidGraphPar first g
+    back <- rpar $ isValidGraphPar second g
+    return $ front && back
+    where (first, second) = splitAt (length nodes `div` 2) nodes                           
