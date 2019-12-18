@@ -22,6 +22,7 @@ module Utils
   allVerticesColored,
   checkValidColored,
   checkValidColoredPar,
+  colorAGraph,
   findClashingNodes,
   colorNode,
   setColors,
@@ -38,6 +39,18 @@ type Node = String
 type Color = Int
 type AdjList = [Node]
 type Graph = Map.Map(Node) (AdjList, Color)
+
+colorAGraph :: FilePath -> (Graph -> Maybe Graph) -> String -> String -> IO String
+colorAGraph graph_file algo outFolder inFolder = do
+              let graph_file_name = last $ wordsWhen (=='/') graph_file
+              let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
+              g <- readGraphFile $ inFolder ++ graph_file
+              putStrLn ("coloring " ++ graph_file ++ " .. ")
+              let output =  checkValidColored $ algo g
+              let max_color = maximum $ getAllColors output
+              response output graph_file
+              writeToFile output max_color outFile
+              return $ "done coloring " ++ graph_file ++ " with " ++ (show max_color)
 
 -- check if <graph> from <fname> is {un}successfully colored and prints out a message
 response :: Maybe Graph -> String -> IO ()

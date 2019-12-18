@@ -1,6 +1,5 @@
 module GraphColoringAlgo
 ( backtracking,
-  colorAGraph,
   colorIndependent,
   divideConquerPar,
   greedy
@@ -30,18 +29,6 @@ greedy _ _ [] _ = Nothing
 greedy nodes@(n:ns) colors (c:cs) g
       | validColor n g c = greedy ns colors colors $ setColor g n c
       | otherwise = greedy nodes colors cs g
-
-colorAGraph :: FilePath -> (Graph -> Maybe Graph) -> String -> String -> IO String
-colorAGraph graph_file algo outFolder inFolder = do
-              let graph_file_name = last $ wordsWhen (=='/') graph_file
-              let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
-              g <- readGraphFile $ inFolder ++ graph_file
-              putStrLn ("coloring " ++ graph_file ++ " .. ")
-              let output =  checkValidColored $ algo g
-              let max_color = maximum $ getAllColors output
-              response output graph_file
-              writeToFile output max_color outFile
-              return $ "done coloring " ++ graph_file ++ " with " ++ (show max_color)
 
 -- following algo in:
 -- http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf

@@ -10,11 +10,13 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Par.Combinator (parMapM)
 import Control.Monad.Par.IO (runParIO)
 import System.Directory
+import System.Random.Shuffle
 
 main :: IO ()
 main = do
   args <- getArgs
   pn <- getProgName
+  let errorMsg = "Usage: " ++ pn ++ " <input-{filename/foldername}> <number-of-colors> <algo: {divide-conquer/backtracking/IndepSet/greedy}> <method: file/folder> <output-folder>"
   case args of
     [graph_file, number_colours, algo, method, outFolder] -> do
       func <- case algo of
@@ -32,9 +34,12 @@ main = do
         "folder" -> do
           let inFolder = graph_file
           filepaths <- filter isValidFile <$> getDirectoryContents inFolder
-          responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f func outFolder inFolder) filepaths
+          filepathShuffled <- shuffleM filepaths
+          putStrLn $ "coloring: \n" ++  (unlines filepathShuffled)
+          responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f func outFolder inFolder) filepathShuffled
           mapM_ putStrLn responses
         _ -> do 
-          die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: {divide-conquer/backtracking/indep-set/greedy}> <output-folder>"
+          die errorMsg
+        
     _ -> do 
-        die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: {divide-conquer/backtracking/indep-set/greedy}> <output-folder>"
+          die errorMsg
