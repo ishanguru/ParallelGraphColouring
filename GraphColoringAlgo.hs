@@ -2,11 +2,11 @@ module GraphColoringAlgo
 ( backtracking,
   colorAGraph,
   colorIndependent,
-  divideConquerPar
+  divideConquerPar,
+  greedy
 ) where
 
 import Utils
-
 import Data.List (sort)
 import qualified Data.Map as Map
 import Control.Parallel.Strategies (rpar, rseq, runEval, parListChunk, using, parMap, parBuffer)
@@ -23,19 +23,29 @@ backtracking nodes@(n:ns) colors (c:cs) g
                               Nothing -> backtracking nodes colors cs g
       | otherwise = backtracking nodes colors cs g
 
-colorAGraph :: FilePath -> Color -> String -> String -> IO String
-colorAGraph graph_file colours outFolder inFolder = do
+greedy :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
+greedy _ [] _ g = Just g
+greedy [] _ _ g = Just g
+greedy _ _ [] _ = Nothing
+greedy nodes@(n:ns) colors (c:cs) g
+      | validColor n g c = greedy ns colors colors $ setColor g n c
+      | otherwise = greedy nodes colors cs g
+
+colorAGraph :: FilePath -> (Graph -> Maybe Graph) -> String -> String -> IO String
+colorAGraph graph_file algo outFolder inFolder = do
               let graph_file_name = last $ wordsWhen (=='/') graph_file
               let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               putStrLn ("coloring " ++ graph_file ++ " .. ")
-              --let nodes = sort $ map (read::String->Int) $ Map.keys g 
-              --let nodes2 = map (show) nodes
-              let output =  checkValidColored $  backtracking (Map.keys g) [1..colours] [1..colours] g
+              let output =  checkValidColored $ algo g
+              let max_color = maximum $ getAllColors output
               response output graph_file
-              writeToFile output outFile
-              return $ "done coloring " ++ graph_file
+              writeToFile output max_color outFile
+              return $ "done coloring " ++ graph_file ++ " with " ++ (show max_color)
 
+-- following algo in:
+-- http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf
+-- an order of mag slower than backtracking algorithm
 -- g = fromList [("A",(["B","C"],0)),("B",(["A","C","D","E","F"],0)),
 -- ("C",(["A","B","D"],0)),("D",(["B","C","E"],0)),("E",(["B","D","F"],0)),("F",(["B","E"],0))]
 -- U = ["A","B","C","D","E","F"]
@@ -77,24 +87,30 @@ colorIndependent g ig u (c:cs) | length (Map.keys ig) == 0 = Just g
                                             return $ colorIndependent colored_g ig_new u_new cs
                                             where u_nodes = Map.keys ig
 
-divideConquerPar :: [Node] -> [Color] -> Graph -> Graph
-divideConquerPar _ [] g = g
-divideConquerPar [] _ g = g
-divideConquerPar [n] colors g
-  | allVerticesColored g = g
+divideConquerPar :: [Node] -> Graph -> Maybe Graph
+divideConquerPar n g = divideConquerPar' n [1..(length (Map.keys g))] g
+
+divideConquerPar' :: [Node] -> [Color] -> Graph -> Maybe Graph
+divideConquerPar' _ [] g = Just g
+divideConquerPar' [] _ g = Just g
+divideConquerPar' [n] colors g
+  | allVerticesColored g = Just g
   | otherwise = 
       if nodeColor > 0 then do
-          setColor g n nodeColor
+          Just $ setColor g n nodeColor
       else do
-          error "can't color graph"
+          Nothing
       where nodeColor = colorNode n colors g
-divideConquerPar nodes colors g
-  | allVerticesColored g = g
+divideConquerPar' nodes colors g
+  | allVerticesColored g = Just g
   | otherwise = runEval $ do
-    front <- rpar $ divideConquerPar first colors $ subGraph first g Map.empty
-    back <- rpar $ divideConquerPar second colors $ subGraph second g Map.empty
-    let join  = Map.union front back
-    return $ merge (Map.keys join) colors join
+    front <- rpar $ divideConquerPar' first colors $ subGraph first g Map.empty
+    back <- rpar $ divideConquerPar' second colors $ subGraph second g Map.empty
+    case (front, back) of 
+      (Just g, Nothing) -> return $ Just $ g
+      (Nothing, Just g) -> return $ Just $ g
+      (Just g, Just y)  -> return $ Just $ merge (Map.keys (Map.union g y)) colors $ Map.union g y
+      _                 -> return $ Nothing
     where (first, second) = splitAt (length nodes `div` 2) nodes
 
 merge :: [Node] -> [Color] -> Graph -> Graph
