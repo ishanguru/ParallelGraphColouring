@@ -1,4 +1,5 @@
 -- stack ghc -- --make -Wall -O2 -threaded -rtsopts -eventlog graph_colouring.hs
+
 import Utils
 import GraphColoringAlgo
 
@@ -19,6 +20,7 @@ main = do
   let errorMsg = "Usage: " ++ pn ++ " <input-{filename/foldername}> <number-of-colors> <algo: {divide-conquer/backtracking/IndepSet/greedy}> <method: file/folder> <output-folder>"
   case args of
     [graph_file, number_colours, algo, method, outFolder] -> do
+      -- select the algorithm to run
       func <- case algo of
         "backtracking" -> do
                 let colours = read number_colours
@@ -27,6 +29,9 @@ main = do
         "greedy" -> return (\g -> backtracking (Map.keys g) [1..] [1..] g)
         "divide-conquer" -> do 
           return (\g -> divideConquerPar (Map.keys g) g)
+        _ -> do die errorMsg
+
+      -- run a file or many files in a folder
       case method of
         "file" -> do
           msg <- colorAGraph graph_file func outFolder ""

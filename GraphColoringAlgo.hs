@@ -1,3 +1,5 @@
+-- This module contains all4 algorithms to solve graph coloring problem
+
 module GraphColoringAlgo
 ( backtracking,
   colorIndependent,
@@ -11,8 +13,11 @@ import qualified Data.Map as Map
 import Control.Parallel.Strategies (rpar, rseq, runEval, parListChunk, using)
 import System.Random.Shuffle
 
+-- Algorithm # 1
 -- assigns a colour to each node in the graph
--- e.g. backtracking (Map.keys g) [1,2,3,4] g
+-- return Nothing if it can't assing colors to the graph, otherwise
+-- returns the colored graph
+-- e.g. backtracking (Map.keys g) [1,2,3,4] [1,2,3,4] g
 backtracking :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
 backtracking _ [] _ g = Just g
 backtracking [] _ _ g = Just g
@@ -23,6 +28,10 @@ backtracking nodes@(n:ns) colors (c:cs) g
                               Nothing -> backtracking nodes colors cs g
       | otherwise = backtracking nodes colors cs g
 
+-- Algorithm # 2
+-- return Nothing if it can't assing colors to the graph, otherwise
+-- returns the colored graph
+-- e.g. greedy (Map.keys g) [1,2,3,4] [1,2,3,4] g
 greedy :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
 greedy _ [] _ g = Just g
 greedy [] _ _ g = Just g
@@ -31,9 +40,10 @@ greedy nodes@(n:ns) colors (c:cs) g
       | validColor n g c = greedy ns colors colors $ setColor g n c
       | otherwise = greedy nodes colors cs g
 
--- following algo in:
--- http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf
--- an order of mag slower than backtracking algorithm
+-- Algorithm # 3
+-- following the ParallelColoring algorithm 4.5 in:
+-- Gebremedhin, A. H. (1999). Parallel graph coloring. UNIVERSITY M Thesis University of Bergen Norway Spring.
+-- link: http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf
 -- g = fromList [("A",(["B","C"],0)),("B",(["A","C","D","E","F"],0)),
 -- ("C",(["A","B","D"],0)),("D",(["B","C","E"],0)),("E",(["B","D","F"],0)),("F",(["B","E"],0))]
 -- U = ["A","B","C","D","E","F"]
@@ -46,7 +56,6 @@ inducedGraph :: Graph -> [Node] -> Graph
 inducedGraph g nodes =  Map.fromList ( map (\x -> (x, (adj x, 0))) nodes `using` parListChunk (length nodes `div` 2) rseq )
                             where adj = (\nx -> filter (\y -> y `elem` nodes) $ getNeighbors nx g)
 
--- g = fromList [("A",(["B","C"],0)),("B",(["A","C","D","E","F"],0)),
 independentSet :: Graph -> Graph -> [Node] -> [Node] -> [Node]
 independentSet _ _ [] i = i
 independentSet g ig nodes i | length (Map.keys ig) == 0 = i
@@ -60,7 +69,6 @@ colorNodes :: Graph -> [Node] -> Color -> Graph
 colorNodes g [] _ = g
 colorNodes g nodes c = Map.union (fst pr) (Map.mapWithKey (\_ x -> (fst x, c)) (snd pr))
                        where pr = Map.partitionWithKey (\k _ -> k `notElem` nodes) g
---colorNodes g (x:xs) c = colorNodes (setColor g x c) xs c
 
 colorIndependent :: Graph -> Graph -> [Node] -> [Color] -> Maybe Graph
 colorIndependent g _ _ [] = Just g
@@ -73,7 +81,7 @@ colorIndependent g ig u (c:cs) | length (Map.keys ig) == 0 = Just g
                                             ig_new <- rpar $ inducedGraph g u_new
                                             return $ colorIndependent colored_g ig_new u_new cs
                                             where u_nodes = Map.keys ig
-
+-- Algorithm # 4
 divideConquerPar :: [Node] -> Graph -> Maybe Graph
 divideConquerPar n g = divideConquerPar' n [1..(length (Map.keys g))] g
 
