@@ -8,7 +8,8 @@ module GraphColoringAlgo
 import Utils
 import Data.List (sort)
 import qualified Data.Map as Map
-import Control.Parallel.Strategies (rpar, rseq, runEval, parListChunk, using, parMap, parBuffer)
+import Control.Parallel.Strategies (rpar, rseq, runEval, parListChunk, using)
+import System.Random.Shuffle
 
 -- assigns a colour to each node in the graph
 -- e.g. backtracking (Map.keys g) [1,2,3,4] g
@@ -42,19 +43,18 @@ greedy nodes@(n:ns) colors (c:cs) g
 -- U = U - X = ["E", "F"]
 -- InducedGraph g U = [("E", (["F"], 0)), ("F", (["E"], 0))]
 inducedGraph :: Graph -> [Node] -> Graph
---inducedGraph g nodes =  Map.fromList ( map (\x -> (x, (adj x, 0))) nodes `using` parBuffer 100 rseq )
---inducedGraph g nodes =  Map.fromList ( map (\x -> (x, (adj x, 0))) nodes `using` parListChunk 100 rseq )
-inducedGraph g nodes =  Map.fromList ( parMap rseq (\x -> (x, (adj x, 0))) nodes )
+inducedGraph g nodes =  Map.fromList ( map (\x -> (x, (adj x, 0))) nodes `using` parListChunk (length nodes `div` 2) rseq )
                             where adj = (\nx -> filter (\y -> y `elem` nodes) $ getNeighbors nx g)
 
 -- g = fromList [("A",(["B","C"],0)),("B",(["A","C","D","E","F"],0)),
 independentSet :: Graph -> Graph -> [Node] -> [Node] -> [Node]
 independentSet _ _ [] i = i
-independentSet g ig u@(x:_) i | length (Map.keys ig) == 0 = i
-                               | otherwise = independentSet g ig_new u_new i_new
-                                             where i_new = x : i
-                                                   u_new = filter (\y -> y `notElem` (x: getNeighbors x g)) u
-                                                   ig_new = inducedGraph g  u_new
+independentSet g ig nodes i | length (Map.keys ig) == 0 = i
+                            | otherwise = independentSet g ig_new u_new i_new
+                                           where x = head nodes
+                                                 i_new = x : i
+                                                 u_new = filter (\y -> y `notElem` (x: getNeighbors x g)) nodes
+                                                 ig_new = inducedGraph g  u_new
                                                   
 colorNodes :: Graph -> [Node] -> Color -> Graph
 colorNodes g [] _ = g
