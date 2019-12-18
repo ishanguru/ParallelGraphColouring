@@ -19,8 +19,14 @@ main = do
     [graph_file, number_colours, algo, outFolder] -> do
       let colours = read number_colours
       case algo of
-        "par" -> do 
-          putStrLn "not implemented"
+        "divide-conquer" -> do 
+          g <- readGraphFile graph_file
+          let max_colours = length $ Map.keys g
+          let output = divideConquerPar (Map.keys g) [1..max_colours] g
+          let result = isValidGraph $ output
+          case result of
+            True -> putStrLn "Successfully coloured graph"
+            _ -> putStrLn "Unable to colour graph"
         "backtracking" -> do
           let inFolder = graph_file
           filepaths <- filter isValidFile <$> getDirectoryContents inFolder
@@ -37,7 +43,7 @@ main = do
           response output graph_file
           writeToFile output outFile
         _ -> do 
-          die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: seq or par> <output-folder>"
+          die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: {divide-conquer/backtracking/IndepSet}> <output-folder>"
 
     _ -> do 
-        die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: seq or par> <output-folder>"
+        die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: {divide-conquer/backtracking/IndepSet}> <output-folder>"

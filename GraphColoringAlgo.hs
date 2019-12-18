@@ -1,7 +1,8 @@
 module GraphColoringAlgo
 ( backtracking,
   colorAGraph,
-  colorIndependent
+  colorIndependent,
+  divideConquerPar
 ) where
 
 import Utils
@@ -17,7 +18,7 @@ backtracking _ [] _ g = Just g
 backtracking [] _ _ g = Just g
 backtracking _ _ [] _ = Nothing
 backtracking nodes@(n:ns) colors (c:cs) g
-      | validColor n c g = case (backtracking ns colors colors $ setColor g n c) of
+      | validColor n g c = case (backtracking ns colors colors $ setColor g n c) of
                               Just gout -> Just gout
                               Nothing -> backtracking nodes colors cs g
       | otherwise = backtracking nodes colors cs g
@@ -75,3 +76,36 @@ colorIndependent g ig u (c:cs) | length (Map.keys ig) == 0 = Just g
                                             ig_new <- rpar $ inducedGraph g u_new
                                             return $ colorIndependent colored_g ig_new u_new cs
                                             where u_nodes = Map.keys ig
+
+divideConquerPar :: [Node] -> [Color] -> Graph -> Graph
+divideConquerPar _ [] g = g
+divideConquerPar [] _ g = g
+divideConquerPar [n] colors g
+  | allVerticesColored g = g
+  | otherwise = 
+      if nodeColor > 0 then do
+          setColor g n nodeColor
+      else do
+          error "can't color graph"
+      where nodeColor = colorNode n colors g
+divideConquerPar nodes colors g
+  | allVerticesColored g = g
+  | otherwise = runEval $ do
+    front <- rpar $ divideConquerPar first colors $ subGraph first g Map.empty
+    back <- rpar $ divideConquerPar second colors $ subGraph second g Map.empty
+    let join  = Map.union front back
+    return $ merge (Map.keys join) colors join
+    where (first, second) = splitAt (length nodes `div` 2) nodes
+
+merge :: [Node] -> [Color] -> Graph -> Graph
+merge [] _ g = g
+merge [x] colors g = setColors g (findClashingNodes x g) $ head updateColors 
+  where updateColors = filter (validColor x g) colors
+merge (x:xs) colors g = merge xs updateColors $ setColors g (findClashingNodes x g) $ head updateColors
+  where updateColors = filter (validColor x g) colors
+
+subGraph :: [Node] -> Graph -> Graph -> Graph 
+subGraph [] _ x = x
+subGraph [n] g x = Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x)
+subGraph (n:ns) g x = subGraph ns g (Map.union x (Map.insert n ((getNeighbors n g), (getColor n g)) x))
+
