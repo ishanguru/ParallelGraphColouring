@@ -1,7 +1,8 @@
 module GraphColoringAlgo
 ( backtracking,
   colorAGraph,
-  colorIndependent
+  colorIndependent,
+  greedy
 ) where
 
 import Utils
@@ -22,19 +23,29 @@ backtracking nodes@(n:ns) colors (c:cs) g
                               Nothing -> backtracking nodes colors cs g
       | otherwise = backtracking nodes colors cs g
 
-colorAGraph :: FilePath -> Color -> String -> String -> IO String
-colorAGraph graph_file colours outFolder inFolder = do
+greedy :: [Node] -> [Color] -> [Color] -> Graph -> Maybe Graph
+greedy _ [] _ g = Just g
+greedy [] _ _ g = Just g
+greedy _ _ [] _ = Nothing
+greedy nodes@(n:ns) colors (c:cs) g
+      | validColor n c g = greedy ns colors colors $ setColor g n c
+      | otherwise = greedy nodes colors cs g
+
+colorAGraph :: FilePath -> (Graph -> Maybe Graph) -> String -> String -> IO String
+colorAGraph graph_file algo outFolder inFolder = do
               let graph_file_name = last $ wordsWhen (=='/') graph_file
               let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
               g <- readGraphFile $ inFolder ++ graph_file
               putStrLn ("coloring " ++ graph_file ++ " .. ")
-              --let nodes = sort $ map (read::String->Int) $ Map.keys g 
-              --let nodes2 = map (show) nodes
-              let output =  checkValidColored $  backtracking (Map.keys g) [1..colours] [1..colours] g
+              let output =  checkValidColored $ algo g
+              let max_color = maximum $ getAllColors output
               response output graph_file
-              writeToFile output outFile
-              return $ "done coloring " ++ graph_file
+              writeToFile output max_color outFile
+              return $ "done coloring " ++ graph_file ++ " with " ++ (show max_color)
 
+-- following algo in:
+-- http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf
+-- an order of mag slower than backtracking algorithm
 -- g = fromList [("A",(["B","C"],0)),("B",(["A","C","D","E","F"],0)),
 -- ("C",(["A","B","D"],0)),("D",(["B","C","E"],0)),("E",(["B","D","F"],0)),("F",(["B","E"],0))]
 -- U = ["A","B","C","D","E","F"]

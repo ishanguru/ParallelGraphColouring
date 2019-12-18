@@ -21,7 +21,8 @@ module Utils
   validColor,
   allVerticesColored,
   checkValidColored,
-  checkValidColoredPar
+  checkValidColoredPar,
+  getAllColors,
 ) where
 
 import qualified Data.Map as Map
@@ -42,9 +43,9 @@ response graph fname = case graph of
                     Nothing ->  putStrLn ("Unable to colour graph "  ++ fname)
 
 -- write <graph> to <fout>
-writeToFile :: Maybe Graph -> String -> IO ()
-writeToFile graph fout = case graph of
-                      Just a -> do writeFile fout ("true\n" ++ printSolution a)
+writeToFile :: Maybe Graph -> Color -> String -> IO ()
+writeToFile graph color fout = case graph of
+                      Just a -> do writeFile fout ("true ncolors " ++ (show color) ++ "\n"++ printSolution a)
                       Nothing -> do writeFile fout "false\n"
 
 -- construct a graph from <filename>
@@ -94,6 +95,11 @@ getNeighbors :: Node -> Graph -> AdjList
 getNeighbors n g = case Map.lookup n g of
                  Just v -> (fst v)
                  Nothing -> []
+
+getAllColors :: Maybe Graph -> [Color]
+getAllColors g = case g of
+                  Just gr -> map (\(k, v) -> snd v) $Map.toList gr
+                  Nothing -> []
 
 -- assings a colour to a single node in the graph
 setColor :: Graph -> Node -> Color -> Graph

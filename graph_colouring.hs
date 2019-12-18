@@ -16,28 +16,25 @@ main = do
   args <- getArgs
   pn <- getProgName
   case args of
-    [graph_file, number_colours, algo, outFolder] -> do
-      let colours = read number_colours
-      case algo of
-        "par" -> do 
-          putStrLn "not implemented"
+    [graph_file, number_colours, algo, method, outFolder] -> do
+      func <- case algo of
         "backtracking" -> do
+                let colours = read number_colours
+                return (\g -> backtracking (Map.keys g) [1..colours] [1..colours] g)
+        "IndepSet" -> return (\g -> colorIndependent g g (Map.keys g) [1..])
+        "greedy" -> return (\g -> backtracking (Map.keys g) [1..] [1..] g)
+
+      case method of
+        "file" -> do
+          msg <- colorAGraph graph_file func outFolder ""
+          putStrLn msg
+        "folder" -> do
           let inFolder = graph_file
           filepaths <- filter isValidFile <$> getDirectoryContents inFolder
-          responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f colours outFolder inFolder) filepaths
+          responses <- runParIO $ parMapM (\f -> liftIO $ colorAGraph f func outFolder inFolder) filepaths
           mapM_ putStrLn responses
-        "IndepSet" -> do
-          -- following algo in:
-          -- http://www.ii.uib.no/~assefaw/pub/coloring/thesis.pdf
-          -- an order of mag slower than backtracking algorithm
-          g <- readGraphFile graph_file
-          let graph_file_name = last $ wordsWhen (=='/') graph_file
-          let outFile = outFolder ++ "/" ++ graph_file_name ++ "_out"
-          let output = checkValidColored $ colorIndependent g g (Map.keys g) [1..colours]
-          response output graph_file
-          writeToFile output outFile
         _ -> do 
           die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: seq or par> <output-folder>"
-
+        
     _ -> do 
         die $ "Usage: " ++ pn ++ " <graph-{file/folder}name/> <number-of-colors> <algo: seq or par> <output-folder>"
