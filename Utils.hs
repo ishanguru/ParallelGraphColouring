@@ -25,7 +25,6 @@ module Utils
   findClashingNodes,
   colorNode,
   setColors,
-  isValidGraph,
   getAllColors
 ) where
 
@@ -145,8 +144,7 @@ checkValidColoredPar' nodes g
       back <- rpar $ checkValidColoredPar' second g
       return (Maybe.isJust front && Maybe.isJust back) = Just g
   | otherwise = Nothing
-  where first = take ((length nodes) `div` 2) nodes
-        second = drop ((length nodes) `div` 2) nodes
+  where (first, second) = splitAt (length nodes `div` 2) nodes
 
 checkValidColored :: Maybe Graph -> Maybe Graph
 checkValidColored g = case g of
@@ -172,16 +170,5 @@ colorNode n (x:xs) g = if validColor n g x then do x
 setColors :: Graph -> [Node] -> Color -> Graph
 setColors g [] _ = g
 setColors g [n] c = setColor g n c
-setColors g (n:ns) c = setColors (setColor g n c) ns c   
+setColors g (n:ns) c = setColors (setColor g n c) ns c 
 
-isValidGraph :: Graph -> Bool
-isValidGraph g = isValidGraphPar (Map.keys g) g
-
-isValidGraphPar :: [Node] -> Graph -> Bool
-isValidGraphPar [] _ = False
-isValidGraphPar [n] g = getColor n g `notElem` getColors (getNeighbors n g) g
-isValidGraphPar nodes g = runEval $ do
-    front <- rpar $ isValidGraphPar first g
-    back <- rpar $ isValidGraphPar second g
-    return $ front && back
-    where (first, second) = splitAt (length nodes `div` 2) nodes                           
